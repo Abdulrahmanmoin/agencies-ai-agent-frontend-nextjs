@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AgencyOS — Web Frontend
 
-## Getting Started
+Next.js 16 (App Router, React 19, Tailwind v4) chat UI for the AgencyOS multi-agent backend.
+Palette: navy `#000075` (primary) + powder blue `#B0E0E6` (accent).
 
-First, run the development server:
+It's a thin client over the backend's UI-agnostic orchestrator: chat on the left, a live
+**Artifacts** panel on the right (requirements, plan, tasks, risks, proposal — rendered as
+markdown cards). HITL pauses (confirmation / clarification) appear as highlighted assistant
+prompts; just reply and the graph resumes. No ClickUp yet — current agent functionality only.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Run (two terminals)
+
+**1. Backend (FastAPI)** — from `../agency-operating-system-ai-agent`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\serve_api.py   # http://127.0.0.1:8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> Use this script, not `uvicorn ...` directly: on Windows uvicorn forces the ProactorEventLoop,
+> which psycopg (the Postgres checkpointer) can't use. The script runs uvicorn under a
+> selector-loop `asyncio.run`. Do not add `--reload`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**2. Frontend** — from `./my-app`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+npm run dev        # http://localhost:3000
+```
 
-## Learn More
+The backend URL is configurable via `.env.local` (`NEXT_PUBLIC_API_URL`, default
+`http://localhost:8000`).
 
-To learn more about Next.js, take a look at the following resources:
+## Endpoints used
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/conversations` | start a conversation, returns the capabilities greeting |
+| `POST` | `/api/conversations/{id}/messages` | send a turn (auto-resumes paused HITL graphs) |
+| `POST` | `/api/conversations/{id}/upload` | attach meeting material (pdf/txt/docx → notes text; audio → transcription) |
+| `GET`  | `/api/conversations/{id}/artifacts` | current agent outputs as markdown cards |
+| `DELETE` | `/api/conversations/{id}` | release the conversation's Postgres connection |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Use the 📎 button by the composer to upload notes (pdf/txt/docx) or audio (mp3/wav/m4a/…). The
+file is merged into the conversation's graph state, then ask the agent to *extract requirements*,
+*make a plan*, or *handle this end to end*.

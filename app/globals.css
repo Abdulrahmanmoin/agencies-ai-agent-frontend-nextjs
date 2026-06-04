@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* AgencyOS palette — navy #000075 (primary) + powder blue #B0E0E6 (accent). */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-navy: #000075;
+  --color-navy-soft: #1a1a8c;
+  --color-powder: #b0e0e6;
+  --color-powder-soft: #d9f1f4;
+  --color-powder-bg: #f3fafb;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #f3fafb;
+  --foreground: #0b1020;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Minimal markdown styling (no typography plugin) for chat + artifact cards. */
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+.md p {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+.md h1,
+.md h2,
+.md h3 {
+  font-weight: 700;
+  color: #000075;
+  margin: 0.9rem 0 0.4rem;
+  line-height: 1.3;
+}
+.md h1 {
+  font-size: 1.25rem;
+}
+.md h2 {
+  font-size: 1.1rem;
+}
+.md h3 {
+  font-size: 1rem;
+}
+.md ul,
+.md ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li {
+  margin: 0.2rem 0;
+  line-height: 1.5;
+}
+.md strong {
+  color: #000075;
+  font-weight: 600;
+}
+.md em {
+  color: #1a1a8c;
+}
+.md code {
+  font-family: var(--font-mono), monospace;
+  background: #e3f3f6;
+  color: #000075;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  font-size: 0.85em;
+}
+.md a {
+  color: #000075;
+  text-decoration: underline;
+}
+.md table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  width: 100%;
+}
+.md th,
+.md td {
+  border: 1px solid #cfe7eb;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+.md th {
+  background: #e3f3f6;
+}
+
+/* Subtle scrollbar in the navy theme. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cfe7eb;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b0e0e6;
 }
