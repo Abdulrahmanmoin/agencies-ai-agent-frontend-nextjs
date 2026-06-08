@@ -66,3 +66,7 @@ export async function getArtifacts(id: string): Promise<Artifact[]> {
   const data = await asJson<{ artifacts: Artifact[] }>(res);
   return data.artifacts;
 }
+
+export function downloadUrl(id: string, agent: string, fmt: "docx" | "pdf"): string {
+  return `${BASE}/api/conversations/${id}/download/${agent}?fmt=${fmt}`;
+}

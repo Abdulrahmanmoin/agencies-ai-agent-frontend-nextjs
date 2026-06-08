@@ -37,7 +37,11 @@ The backend URL is configurable via `.env.local` (`NEXT_PUBLIC_API_URL`, default
 | `POST` | `/api/conversations/{id}/messages` | send a turn (auto-resumes paused HITL graphs) |
 | `POST` | `/api/conversations/{id}/upload` | attach meeting material (pdf/txt/docx → notes text; audio → transcription) |
 | `GET`  | `/api/conversations/{id}/artifacts` | current agent outputs as markdown cards |
+| `GET`  | `/api/conversations/{id}/download/{agent}?fmt=docx\|pdf` | download an artifact as a Word doc or PDF |
 | `DELETE` | `/api/conversations/{id}` | release the conversation's Postgres connection |
+
+Each artifact card has **DOCX** and **PDF** download buttons (rendered via `python-docx` /
+`reportlab` from the artifact markdown).
 
 Use the 📎 button by the composer to upload notes (pdf/txt/docx) or audio (mp3/wav/m4a/…). The
 file is merged into the conversation's graph state, then ask the agent to *extract requirements*,

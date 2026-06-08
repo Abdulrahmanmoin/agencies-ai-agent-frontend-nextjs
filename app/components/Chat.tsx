@@ -219,7 +219,7 @@ export default function Chat() {
 
       {/* Artifact panel */}
       <div className="hidden h-screen lg:block">
-        <ArtifactPanel artifacts={artifacts} />
+        <ArtifactPanel artifacts={artifacts} conversationId={conversationId} />
       </div>
     </div>
   );
