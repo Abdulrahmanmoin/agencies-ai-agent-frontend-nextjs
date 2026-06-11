@@ -54,9 +54,9 @@ export default function ArtifactPanel({
   return (
     <aside className="flex h-full w-full flex-col border-l border-powder bg-powder-bg">
       <div className="border-b border-powder px-5 py-4">
-        <h2 className="text-sm font-bold tracking-wide text-navy uppercase">Artifacts</h2>
+        <h2 className="text-sm font-bold tracking-wide text-navy uppercase">Deliverables</h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Outputs produced by the agents · download as DOCX or PDF
+          Produced by the agents · download as DOCX or PDF
         </p>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
