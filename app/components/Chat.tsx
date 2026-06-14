@@ -29,6 +29,7 @@ export default function Chat() {
   const [uploading, setUploading] = useState(false);
   const [connecting, setConnecting] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -118,7 +119,11 @@ export default function Chat() {
   }
 
   return (
-    <div className="grid h-screen grid-cols-1 lg:grid-cols-[1fr_minmax(340px,420px)]">
+    <div
+      className={`grid h-screen grid-cols-1 ${
+        panelOpen ? "lg:grid-cols-[1fr_minmax(340px,420px)]" : "lg:grid-cols-1"
+      }`}
+    >
       {/* Chat column */}
       <section className="flex h-screen min-w-0 flex-col">
         <header className="flex items-center gap-3 border-b border-powder bg-navy px-6 py-4">
@@ -135,6 +140,25 @@ export default function Chat() {
             />
             {connecting ? "connecting…" : error ? "offline" : "connected"}
           </span>
+          {/* Deliverables panel toggle (lg+) */}
+          <button
+            type="button"
+            onClick={() => setPanelOpen((v) => !v)}
+            aria-pressed={panelOpen}
+            title={panelOpen ? "Hide deliverables" : "Show deliverables"}
+            className="ml-3 hidden items-center gap-1.5 rounded-lg border border-powder/40 px-2.5 py-1.5 text-xs font-semibold text-powder transition hover:bg-white/10 lg:flex"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+            </svg>
+            Deliverables
+            {artifacts.length > 0 && (
+              <span className="rounded-full bg-powder px-1.5 text-[10px] font-bold text-navy">
+                {artifacts.length}
+              </span>
+            )}
+          </button>
         </header>
 
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
@@ -218,9 +242,15 @@ export default function Chat() {
       </section>
 
       {/* Artifact panel */}
-      <div className="hidden h-screen lg:block">
-        <ArtifactPanel artifacts={artifacts} conversationId={conversationId} />
-      </div>
+      {panelOpen && (
+        <div className="hidden h-screen lg:block">
+          <ArtifactPanel
+            artifacts={artifacts}
+            conversationId={conversationId}
+            onClose={() => setPanelOpen(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
