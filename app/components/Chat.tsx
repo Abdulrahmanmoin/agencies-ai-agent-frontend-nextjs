@@ -9,8 +9,18 @@ import {
   type Artifact,
   type TurnResponse,
 } from "../lib/api";
+import {
+  deleteConversation,
+  getActiveId,
+  getConversation,
+  listConversations,
+  rememberActiveId,
+  upsertConversation,
+  type StoredConversation,
+} from "../lib/history";
 import ArtifactPanel from "./ArtifactPanel";
 import Markdown from "./Markdown";
+import Sidebar from "./Sidebar";
 
 type Role = "user" | "assistant";
 
@@ -24,35 +34,18 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [conversations, setConversations] = useState<StoredConversation[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [connecting, setConnecting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const started = useRef(false);
-
-  // Open a conversation once on mount (StrictMode-safe via the `started` guard).
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    (async () => {
-      try {
-        const conv = await createConversation();
-        setConversationId(conv.conversation_id);
-        if (conv.greeting) {
-          setMessages([{ role: "assistant", text: conv.greeting }]);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to connect to the backend.");
-      } finally {
-        setConnecting(false);
-      }
-    })();
-  }, []);
 
   // Auto-scroll the transcript on new messages.
   useEffect(() => {
@@ -67,28 +60,81 @@ export default function Chat() {
     }
   }
 
+  // Persist a conversation's transcript to the sidebar history (only once it has real content).
+  function persist(id: string, msgs: ChatMessage[]) {
+    if (!msgs.some((m) => m.role === "user")) return; // don't list greeting-only chats
+    upsertConversation(id, msgs);
+    setConversations(listConversations());
+    rememberActiveId(id);
+  }
+
+  // Start a brand-new conversation (server creates the thread + returns the capabilities greeting).
+  async function openNew() {
+    setConnecting(true);
+    setError(null);
+    setArtifacts([]);
+    setMessages([]);
+    setConversationId(null);
+    try {
+      const conv = await createConversation();
+      setConversationId(conv.conversation_id);
+      rememberActiveId(conv.conversation_id);
+      setMessages(conv.greeting ? [{ role: "assistant", text: conv.greeting }] : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to connect to the backend.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function handleSelect(id: string) {
+    if (id === conversationId || busy) return;
+    const conv = getConversation(id);
+    if (!conv) return;
+    setError(null);
+    setConversationId(id);
+    setMessages(conv.messages);
+    rememberActiveId(id);
+    refreshArtifacts(id);
+  }
+
+  function handleDelete(id: string) {
+    deleteConversation(id);
+    setConversations(listConversations());
+    if (id === conversationId) openNew();
+  }
+
   async function handleSend() {
     const text = input.trim();
     if (!text || busy || !conversationId) return;
 
     setInput("");
     setError(null);
-    setMessages((m) => [...m, { role: "user", text }]);
+    const afterUser: ChatMessage[] = [...messages, { role: "user", text }];
+    setMessages(afterUser);
+    persist(conversationId, afterUser);
     setBusy(true);
     try {
       const res: TurnResponse = await sendMessage(conversationId, text);
       const reply = res.message ?? res.question ?? "(no response)";
-      setMessages((m) => [...m, { role: "assistant", text: reply, awaiting: res.awaiting_input }]);
+      const afterReply: ChatMessage[] = [
+        ...afterUser,
+        { role: "assistant", text: reply, awaiting: res.awaiting_input },
+      ];
+      setMessages(afterReply);
+      persist(conversationId, afterReply);
       await refreshArtifacts(conversationId);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "That turn failed.";
-      setMessages((m) => [
-        ...m,
+      const afterErr: ChatMessage[] = [
+        ...afterUser,
         {
           role: "assistant",
           text: `⚠️ Sorry — that turn failed (${msg}). This is usually a temporary network/LLM issue. Your conversation is intact — just send the message again.`,
         },
-      ]);
+      ];
+      setMessages(afterErr);
+      persist(conversationId, afterErr);
     } finally {
       setBusy(false);
     }
@@ -98,18 +144,44 @@ export default function Chat() {
     if (!conversationId || uploading || busy) return;
     setError(null);
     setUploading(true);
-    setMessages((m) => [...m, { role: "user", text: `📎 Uploading ${file.name}…` }]);
+    const afterUser: ChatMessage[] = [...messages, { role: "user", text: `📎 Uploading ${file.name}…` }];
+    setMessages(afterUser);
     try {
       const res = await uploadFile(conversationId, file);
-      setMessages((m) => [...m, { role: "assistant", text: res.message }]);
+      const afterReply: ChatMessage[] = [...afterUser, { role: "assistant", text: res.message }];
+      setMessages(afterReply);
+      persist(conversationId, afterReply);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "upload failed";
-      setMessages((m) => [...m, { role: "assistant", text: `⚠️ Upload failed: ${msg}` }]);
+      setMessages([...afterUser, { role: "assistant", text: `⚠️ Upload failed: ${msg}` }]);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = ""; // allow re-uploading the same file
     }
   }
+
+  async function restoreOrOpen() {
+    const list = listConversations();
+    setConversations(list);
+    const activeId = getActiveId();
+    const existing = activeId ? list.find((c) => c.id === activeId) : undefined;
+    if (existing) {
+      setConversationId(existing.id);
+      setMessages(existing.messages);
+      setConnecting(false);
+      refreshArtifacts(existing.id);
+    } else {
+      await openNew();
+    }
+  }
+
+  // Restore the last chat (or open a fresh one) once on mount; StrictMode-safe via `started`.
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void restoreOrOpen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -118,15 +190,48 @@ export default function Chat() {
     }
   }
 
+  const gridCols =
+    sidebarOpen && panelOpen
+      ? "lg:grid-cols-[260px_1fr_minmax(340px,420px)]"
+      : sidebarOpen
+        ? "lg:grid-cols-[260px_1fr]"
+        : panelOpen
+          ? "lg:grid-cols-[1fr_minmax(340px,420px)]"
+          : "lg:grid-cols-1";
+
   return (
-    <div
-      className={`grid h-screen grid-cols-1 ${
-        panelOpen ? "lg:grid-cols-[1fr_minmax(340px,420px)]" : "lg:grid-cols-1"
-      }`}
-    >
+    <div className={`grid h-screen grid-cols-1 ${gridCols}`}>
+      {/* History sidebar (lg+) */}
+      {sidebarOpen && (
+        <div className="hidden h-screen lg:block">
+          <Sidebar
+            conversations={conversations}
+            activeId={conversationId}
+            onSelect={handleSelect}
+            onNew={openNew}
+            onDelete={handleDelete}
+            onClose={() => setSidebarOpen(false)}
+          />
+        </div>
+      )}
+
       {/* Chat column */}
       <section className="flex h-screen min-w-0 flex-col">
         <header className="flex items-center gap-3 border-b border-powder bg-navy px-6 py-4">
+          {/* Sidebar toggle (lg+) */}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-pressed={sidebarOpen}
+            title={sidebarOpen ? "Hide chat history" : "Show chat history"}
+            aria-label={sidebarOpen ? "Hide chat history" : "Show chat history"}
+            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-powder/40 text-powder transition hover:bg-white/10 lg:flex"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M9 3v18" />
+            </svg>
+          </button>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-powder font-bold text-navy">
             A
           </div>
